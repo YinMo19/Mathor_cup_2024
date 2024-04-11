@@ -4,6 +4,32 @@
 这是Mathor Cup 2024 的论文。
 
 ---
+## 项目的文件结构
+> 暂时
+```shell
+.
+├── appendix                     -> 附录文件，代码在这里
+│   ├── Sen
+│   └── YinMo
+│       └── first_try.ipynb
+├── essay                        -> 论文在这里
+│   ├── main.aux
+│   ├── main.log
+│   ├── main.out
+│   ├── main.pdf
+│   ├── main.synctex.gz
+│   ├── main.tex
+│   └── main.toc
+├── image_in_README              -> README的插图
+│   ├── image_2.png
+│   ├── image_3.png
+│   └── image.png
+├── README.md
+└── requirements.txt             -> 项目依赖
+```
+在本文件夹下面如果你生成了虚拟环境会自动被`.gitignore`忽略。
+
+---
 ## 关于Python的虚拟环境
 在尝试写python代码之前，由于不出现包冲突，我们建议先进入虚拟环境。在命令行输入（现在处于这个项目的根文件夹下）
 ```shell
