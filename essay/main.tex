@@ -1,0 +1,150 @@
+\documentclass[UTF8,a4paper,10 pt]{article}%字符标准，纸张，字体大小，文档类型，自行打印11pt，单位打印12pt
+\usepackage{mathtools,amssymb,array,amsthm,amsmath}%数学宏包
+\usepackage{geometry,ulem,graphicx,longtable,caption2,cite,fancyhdr,multicol,color}%通用宏包
+\geometry{a4paper,left=2cm, right=2cm, top=2.6cm, bottom=3cm}%页面布局
+\usepackage{ctex}
+\usepackage{multirow} % Required for multirows
+\newcommand\dd{\mathop{}\!\mathrm{d}}%定义微分算子
+\newcommand\eu{\mathrm{e}}%定义自然常数
+\newcommand\cbnt{\mathrm{C}}%定义自然常数\\
+\newcommand\argm{\mathrm{A}}%定义自然常数
+\renewcommand\bar{\overline}
+\renewcommand\vec{\overrightarrow}
+\usepackage{graphicx,graphics}
+\usepackage{wrapfig}
+\usepackage{xeCJK}
+\usepackage[hidelinks]{hyperref}
+\xeCJKsetup{
+	CJKecglue={\:}
+}
+\AtBeginDocument{
+	\let\mathbb\relax
+	\DeclareMathAlphabet{\mathbb}{U}{msb}{m}{n}
+}
+\setlength{\lineskip}{8pt}
+\setlength{\lineskiplimit}{8pt}
+
+
+
+
+\usepackage{listings}
+\usepackage{xcolor}
+\lstset{
+	basicstyle=\small\ttfamily,	% 基本样式
+	keywordstyle=\color{blue!70!green}, % 关键词样式
+	commentstyle=\color{yellow!30!green!70},   	% 注释样式
+	stringstyle=\color{red!70!purple}, 	% 字符串样式
+	backgroundcolor=\color{gray!5},     % 代码块背景颜色
+	frame=leftline,						% 代码框形状
+	framerule=18pt,%
+	rulecolor=\color{purple!10!blue!10},      % 代码框颜色
+	numbers=left,				% 左侧显示行号往左靠, 还可以为right ，或none，即不加行号
+	numberstyle=\footnotesize,	% 行号的样式
+	firstnumber=1,
+	stepnumber=1,                  	% 若设置为2，则显示行号为1,3,5
+	numbersep=7pt,               	% 行号与代码之间的间距
+	aboveskip=.25em, 			% 代码块边框
+	showspaces=false,               	% 显示添加特定下划线的空格
+	showstringspaces=false,         	% 不显示代码字符串中间的空格标记
+	keepspaces=true, 					
+	showtabs=false,                 	% 在字符串中显示制表符
+	tabsize=2,                     		% 默认缩进2个字符
+	captionpos=n,                   	% 将标题位置设置为底部
+	flexiblecolumns=true, 			%
+	breaklines=true,                	% 设置自动断行
+	breakatwhitespace=false,        	% 设置自动中断是否只发生在空格处
+	breakautoindent=true,			%
+	breakindent=1em, 			%
+	title=\lstname,				%
+	escapeinside=``,  			% 在``里显示中文
+	xleftmargin=1.5em,  xrightmargin=0em,     % 设定listing左右的空白
+	aboveskip=1ex, belowskip=1ex,
+	framextopmargin=1pt, framexbottommargin=1pt,
+    abovecaptionskip=-2pt,belowcaptionskip=3pt,
+	% 设定中文冲突，断行，列模式，数学环境输入，listing数字的样式
+	extendedchars=false, columns=flexible, mathescape=true,
+	texcl=true,
+	fontadjust
+}%
+
+\allowdisplaybreaks[4]
+
+
+
+
+
+
+\begin{document}
+	\setlength{\lineskip}{8pt}
+	\setlength{\lineskiplimit}{8pt}
+    
+\begin{table*}[!ht]
+    \renewcommand\arraystretch{1.5}
+    \centering  
+    \begin{tabular}{|p{3.5cm}<{\centering}|p{3.5cm}<{\centering}|}
+        \hline
+        {队伍编号}&MC2406053\\
+        \hline
+        题号&\\
+        \hline        
+    \end{tabular}
+\end{table*}
+
+\setcounter{page}{1}
+\pagenumbering{roman}
+
+\noindent\rule{\linewidth}{1pt}
+\begin{center}
+    \Large 论文标题
+\end{center}
+\begin{center}
+    \large\bf 摘要
+\end{center}
+
+摘要内容
+
+\noindent{\bf 关键词:}
+
+
+\newpage
+
+\tableofcontents
+
+
+\newpage
+\setcounter{page}{1}
+\pagenumbering{arabic}
+
+
+\section{介绍}
+\subsection{介绍介绍}
+
+
+\clearpage
+\begin{center}
+    \huge \bf 附录
+\end{center}
+\appendix
+\section{附录1}
+
+\begin{lstlisting}[language=python]
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.animation import FuncAnimation
+from scipy.integrate import odeint
+from scipy import linalg as la
+from scipy import optimize
+import scipy
+
+config = {
+    "text.usetex": True,
+    "text.latex.preamble": r"\usepackage{CJK}",  # 预先导入CJK宏包处理中文
+}
+plt.rcParams.update(config)
+\end{lstlisting}
+
+\end{document}

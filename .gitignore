@@ -1,1 +1,7 @@
 venv
+*.toc
+*.log
+*.out
+*.aux
+*.synctex.gz
+essay/main.pdf
