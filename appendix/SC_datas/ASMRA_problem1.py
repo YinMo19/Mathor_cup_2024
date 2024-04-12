@@ -11,7 +11,7 @@ def load_data(existing_scs):
     all_data = {}
     for sc_id in existing_scs:
         try:
-            data = pd.read_csv(f'SC_{sc_id}.csv', parse_dates=['date'], index_col='date')
+            data = pd.read_csv(f'SC{sc_id}.csv', parse_dates=['date'], index_col='date')
             all_data[sc_id] = data
         except FileNotFoundError:
             print(f"File for center {sc_id} not found.")
