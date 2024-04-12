@@ -9,7 +9,7 @@ from sklearn.metrics import mean_squared_error
 
 listSC=['SC58', 'SC4', 'SC52', 'SC10', 'SC28', 'SC3', 'SC18', 'SC35', 'SC25', 'SC9', 'SC43', 'SC19', 'SC47', 'SC1', 'SC14', 'SC5', 'SC44', 'SC61', 'SC63', 'SC46', 'SC2', 'SC20', 'SC55', 'SC60', 'SC24', 'SC68', 'SC66', 'SC34', 'SC37', 'SC6', 'SC26', 'SC36', 'SC21', 'SC57', 'SC27', 'SC41', 'SC39', 'SC15', 'SC32', 'SC23', 'SC17', 'SC56', 'SC12', 'SC30', 'SC7', 'SC8', 'SC29', 'SC48', 'SC40', 'SC22', 'SC54', 'SC16', 'SC51', 'SC49', 'SC31', 'SC38', 'SC53']
 # 加载数据
-def load_data(num_centers=1):
+def load_data(num_centers=68):
     all_data = []
     for i in range(1, num_centers + 1):
         if( f'SC{i}' not in listSC):
@@ -58,13 +58,18 @@ def predict_future(model, start_date, num_days, num_centers):
     future_data['predicted_volume'] = predictions
     return future_data
 
+# 输出
+def save_predictions_to_csv(predictions, file_name):
+    predictions.to_csv(file_name, index=False)
+    print(f'Saved predictions to {file_name}')
+
 # 主函数
 def main():
     data = load_data()
     data = preprocess(data)
     model = train_model(data)
-    future_predictions = predict_future(model, '2023-12-01', 30, 1)
-    print(future_predictions)
+    future_predictions = predict_future(model, '2023-12-01', 30, 68)
+    save_predictions_to_csv(future_predictions, 'predicted_volumes.csv')
 
 if __name__ == '__main__':
     main()
