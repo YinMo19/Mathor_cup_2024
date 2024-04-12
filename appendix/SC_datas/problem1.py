@@ -58,9 +58,13 @@ def predict_future(model, start_date, num_days, num_centers):
     future_data['predicted_volume'] = predictions
     return future_data
 
-# 输出
+# 保存结果到CSV
 def save_predictions_to_csv(predictions, file_name):
-    predictions.to_csv(file_name, index=False)
+    predictions['date'] = predictions['date'].dt.strftime('%Y/%m/%d')
+    # 选择和重命名列
+    output = predictions[['date', 'predicted_volume']].rename(columns={'predicted_volume': 'value'})
+    # 保存到CSV
+    output.to_csv(file_name, index=False)
     print(f'Saved predictions to {file_name}')
 
 # 主函数
