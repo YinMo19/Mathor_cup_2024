@@ -6,14 +6,12 @@ from sklearn.metrics import mean_squared_error
 
 # 假设数据已经按照分拣中心编号和日期排列好
 # 每个文件名格式为 'SC{i}.csv'，其中 i 是分拣中心编号
+existing_scs = [1,2,3,4,5,6,7,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,34,35,36,37,38,39,40,41,43,44,46,47,48,49,51,52,53,54,55,56,57,58,60,61,63,66,68] 
 
-listSC=['SC58', 'SC4', 'SC52', 'SC10', 'SC28', 'SC3', 'SC18', 'SC35', 'SC25', 'SC9', 'SC43', 'SC19', 'SC47', 'SC1', 'SC14', 'SC5', 'SC44', 'SC61', 'SC63', 'SC46', 'SC2', 'SC20', 'SC55', 'SC60', 'SC24', 'SC68', 'SC66', 'SC34', 'SC37', 'SC6', 'SC26', 'SC36', 'SC21', 'SC57', 'SC27', 'SC41', 'SC39', 'SC15', 'SC32', 'SC23', 'SC17', 'SC56', 'SC12', 'SC30', 'SC7', 'SC8', 'SC29', 'SC48', 'SC40', 'SC22', 'SC54', 'SC16', 'SC51', 'SC49', 'SC31', 'SC38', 'SC53']
 # 加载数据
 def load_data(num_centers=68):
     all_data = []
-    for i in range(1, num_centers + 1):
-        if( f'SC{i}' not in listSC):
-            continue
+    for i in existing_scs:
         data = pd.read_csv(f'SC{i}.csv')
         data['SC_id'] = i
         all_data.append(data)
@@ -36,7 +34,6 @@ def train_model(data):
     X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=50)
     
     model = RandomForestRegressor(n_estimators=100, random_state=50)
-    
     model.fit(X_train, y_train)
     
     # 预测和评估
@@ -49,8 +46,8 @@ def train_model(data):
 def predict_future(model, start_date, num_days, num_centers):
     future_dates = pd.date_range(start_date, periods=num_days)
     future_data = pd.DataFrame({
-        'date': np.repeat(future_dates, num_centers),
-        'SC_id': np.tile(range(1, num_centers + 1), num_days)
+        'date': np.repeat(future_dates, len(existing_scs)),
+        'SC_id': np.tile(existing_scs, num_days)
     })
     future_data = preprocess(future_data)
     features = future_data[['SC_id', 'year', 'month', 'day', 'weekday']]
@@ -61,10 +58,7 @@ def predict_future(model, start_date, num_days, num_centers):
 # 保存结果到CSV
 def save_predictions_to_csv(predictions, file_name):
     predictions['date'] = predictions['date'].dt.strftime('%Y/%m/%d')
-    # 选择和重命名列
-    output = predictions[['date', 'predicted_volume']].rename(columns={'predicted_volume': 'value'})
-    # 保存到CSV
-    output.to_csv(file_name, index=False)
+    predictions.to_csv(file_name, index=False)
     print(f'Saved predictions to {file_name}')
 
 # 主函数
