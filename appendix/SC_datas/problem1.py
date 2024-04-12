@@ -43,7 +43,7 @@ def train_model(data):
     return model
 
 # 预测未来的货量
-def predict_future(model, start_date, num_days, num_centers):
+def predict_future(model, start_date, num_days, existing_scs):
     future_dates = pd.date_range(start_date, periods=num_days)
     future_data = pd.DataFrame({
         'date': np.repeat(future_dates, len(existing_scs)),
@@ -66,7 +66,7 @@ def main():
     data = load_data()
     data = preprocess(data)
     model = train_model(data)
-    future_predictions = predict_future(model, '2023-12-01', 30, 68)
+    future_predictions = predict_future(model, '2023-08-01', 153, existing_scs)
     save_predictions_to_csv(future_predictions, 'predicted_volumes.csv')
 
 if __name__ == '__main__':
