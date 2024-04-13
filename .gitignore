@@ -4,3 +4,5 @@ venv
 *.out
 *.aux
 *.synctex.gz
+
+appendix/YinMo/images
