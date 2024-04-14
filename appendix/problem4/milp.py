@@ -10,7 +10,7 @@ from pulp import (
 )
 
 # 读取数据
-df = pd.read_csv("path_to_read.csv")
+df = pd.read_csv("read.csv")
 df["date"] = pd.to_datetime(df["date"]).dt.date
 
 # 设定班次及每个班次的时间段
