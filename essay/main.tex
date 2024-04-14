@@ -105,7 +105,7 @@
 
 摘要内容
 
-\noindent{\bf 关键词:随机森林算法}
+\noindent{\bf 关键词:随机森林算法<LSTM}
 
 
 \newpage
@@ -159,38 +159,89 @@
 
 \clearpage
 \section{问题一的建模与求解}
-问题一给出了分拣中心在过去的四个月内每天的货量以及过去30天内每个小时的货量。在这些数据的基础上要对下一个月（30天）的货量进行预测，我们先对给出的数据进行观察。我们选取，例如{\tt SC}
+\subsection{分析}
+问题一给出了分拣中心在过去的四个月内每天的货量以及过去30天内每个小时的货量。在这些数据的基础上要对下一个月（30天）的货量进行预测，我们先对给出的数据进行观察。我们选取，例如{\tt SC6,SC41} 来观察。利用{\tt python/matplotlib}作图
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics*[width=0.8\linewidth]{images/example.pdf}
+	\caption{{\tt SC6,SC41}的日期-货量图线}
+\end{figure}
+
+根据观察，我们发现在特定的时间段会出现一些"异常值"，而这些异常值的出现很可能是由于节假日等因素引起的。因此为了预测30天后的货物量，我们选取几种深度学习的方法来进行预测。
+\begin{enumerate}
+	\item LSTM
+	\item ARIMA
+	\item 随机森林算法
+\end{enumerate}
+\subsubsection{LSTM}
+长短期记忆（英语：Long Short-Term Memory，LSTM）是一种时间循环神经网络（RNN）。由于独特的设计结构，LSTM适合于处理和预测时间序列中间隔和延迟非常长的重要事件。LSTM 通过引入“门”结构来调节信息的流动，这使得它在长序列数据上表现得更好。LSTM的核心组件有遗忘门（Forget Gate）、输入门（Input Gate）、细胞状态（Cell State）、输出门（Output Gate）。LSTM 的每个时刻会通过上述四个门控制信息的流动。遗忘门决定丢弃哪些过去的信息，输入门和它的候选值共同决定将哪些新信息加入细胞状态。细胞状态随后更新，最后通过输出门确定应输出什么信息。
+
+通过这样的结构，LSTM 能够在处理序列数据时有效地保留长期依赖信息，解决了传统RNN在长序列上的梯度消失或爆炸问题。
+
+\subsubsection{ARIMA}
+ARIMA模型（自回归积分滑动平均模型）是一种广泛应用于时间序列预测的统计模型。ARIMA模型结合了自回归（AR）、差分（I）和移动平均（MA）三种主要组成部分，适用于分析和预测具有时间依赖性的数据。其核心组件包括自回归（AR）部分、差分（I）部分、移动平均（MA）部分。将这三部分结合起来，ARIMA模型的完整形式可以表示为：
+\begin{align*}
+	\phi (B)\nabla^d X_t = \theta(B)a_t
+\end{align*}
+其中\(\phi (B) X_t = \phi_1X_{t-1}+\phi_2X_{t-2}+\cdots+\phi_p X_{t-p}\)，$p$是自回归项的阶数,\(\phi_i\)是自回归系数，\(B\)是退后算子。\(\theta(B) 	a_t\)则类似，\(a_t\)是时间序列的误差项。
+
+从式子中可以看出，通过对原始数据进行差分转换，ARIMA能够将非平稳时间序列转换为平稳时间序列，因此模型能够适用于预测那些显示出趋势或季节性模式的数据。
+\subsubsection{随机森林算法}
+随机森林是一种集成学习方法，特别适合用于分类、回归和其他任务，通过构建多棵决策树在训练时并输出模式的类（分类）或平均预测（回归）。随机森林算法的核心思想是通过合并多个决策树的预测结果来提高整体模型的预测准确性和稳定性。
 
 
+随机森林算法的主要步骤有：自助采样（Bootstrap sampling），从原始数据集中随机（允许重复的）选择N个样本构成了一个训练集。N次采样产生的N个训练集被用于训练N棵决策树
+；构建决策树：对于每棵树的每个节点，随机选择k个特征（而不是所有特征），然后使用这些特征中的最佳分割方法来分割节点。这种“特征随机选择”的做法增加了树之间的差异性。
+决策树的生长：每棵树都尽可能地生长而不进行剪枝。每棵树都完全依赖于自助采样得到的训练数据集来建立。
+聚合预测：对于分类问题，使用多数投票法；对于回归问题，计算所有树的输出值的平均值。
+
+随机森林算法的成功在于它的简单性和在多种数据集上表现出的高效性与准确性。它既能处理分类问题，也能处理回归问题，同时还能进行特征选择，是一种非常强大且灵活的机器学习算法。
+
+
+
+\subsection{数据模拟}
+根据选择，我们对其进行数据模拟。我们通过使用{\tt python}的{\tt sklearn}中提供的模型来进行拟合。首先我们通过分类不同的仓库，获取所有的信息。在分类完成之后，我们利用几种方法来实现。首先是利用LSTM来生成预测的曲线。\footnote{具体代码在附录中。}如图\ref{lstm}。
+
+相同的，我们选取随机森林进行预测可以得到图\ref{rf}。另外由于我们发现数据有较大的波动，而ARIMA 模型适用于平稳时间序列，而从图中看，原始数据不是平稳的。因此直接使用 ARIMA 模型可能不会得到好的预测效果。我们尝试季节性 ARIMA (SARIMA) 模型。
+
+经过所输出的平均方差的对比，我们认为使用随机森林算法对于第一题是相对的最优解。因此我们对未来一个月之内每一个小时的货量预测也采取完全相同的方法预测。
+
+\begin{figure}[t]
+	\centering
+	\includegraphics*[width=0.8\linewidth]{images/LSTM_R.pdf}
+	\caption{利用LSTM预测图线示例}
+	\label{lstm}
+\end{figure}
+\begin{figure}[!ht]
+	\centering
+	\includegraphics*[width=0.8\linewidth]{images/pre_10.pdf}
+	\caption{利用随机森林预测图线示例}
+	\label{rf}
+\end{figure}
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics*[width=0.8\linewidth]{images/pre_55.pdf}
+	\caption{利用SARIMA预测图线示例}
+	\label{sarima}
+\end{figure}
+
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics*[width=0.8\linewidth]{images/xuantu.pdf}
+	\caption{分配中心之间的关系弦图}
+	\label{xt}
+\end{figure}
 
 \clearpage
 \begin{center}
     \huge \bf 附录
 \end{center}
 \appendix
-\section{附录1}
-
-\begin{lstlisting}[language=python]
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
-from mpl_toolkits.mplot3d import Axes3D
-import numpy as np
-from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.animation import FuncAnimation
-from scipy.integrate import odeint
-from scipy import linalg as la
-from scipy import optimize
-import scipy
-
-config = {
-    "text.usetex": True,
-    "text.latex.preamble": r"\usepackage{CJK}",  # 预先导入CJK宏包处理中文
-}
-plt.rcParams.update(config)
-\end{lstlisting}
-
-随机森林调参代码
+\section{问题一代码}
+\noindent 随机森林调参代码
 \begin{lstlisting}[language=python]
 import pandas as pd
 import numpy as np
@@ -274,7 +325,7 @@ if __name__ == "__main__":
         print("No data loaded, please check the data files.")
 \end{lstlisting}
 
-随机森林训练代码
+\noindent 随机森林训练代码
 \begin{lstlisting}[language=python]
 import pandas as pd
 import numpy as np
@@ -368,8 +419,7 @@ def main():
 if __name__ == "__main__":
     main()
 \end{lstlisting}
-
-
+ARIMA和LSTM的代码未被采用，因此仅放在支撑材料中。
 
 
 \end{document}
