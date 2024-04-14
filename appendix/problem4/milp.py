@@ -1,19 +1,11 @@
 import pandas as pd
-from pulp import (
-    LpProblem,
-    LpMaximize,
-    LpVariable,
-    lpSum,
-    LpInteger,
-    LpBinary,
-    PULP_CBC_CMD,
-)
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD
 
 # 读取数据
 df = pd.read_csv("read.csv")
 df["date"] = pd.to_datetime(df["date"]).dt.date
 
-# 设定班次及每个班次的时间段
+# 班次及时间段
 shifts = [(0, 8), (5, 13), (8, 16), (12, 20), (14, 22), (16, 24)]
 shift_labels = ["Shift1", "Shift2", "Shift3", "Shift4", "Shift5", "Shift6"]
 dates = sorted(df["date"].unique())
@@ -27,37 +19,31 @@ for date in dates:
             (daily_data["hour"] >= start) & (daily_data["hour"] < end)
         ]["value"].sum()
 
-# 建立问题
-model = LpProblem("Personnel_Scheduling", LpMaximize)
+# 建立优化模型
+model = LpProblem("Personnel_Scheduling", LpMinimize)
 
 # 定义变量
-x = LpVariable.dicts(
-    "FullTime",
-    [(date, shift) for date in dates for shift in shift_labels],
-    lowBound=0,
-    upBound=1,
-    cat=LpBinary,
-)
-y = LpVariable.dicts(
-    "Temp",
-    [(date, shift) for date in dates for shift in shift_labels],
-    lowBound=0,
-    cat=LpInteger,
-)
+full_time = LpVariable.dicts("FullTime", (dates, shift_labels, range(200)), 0, 1, LpBinary)
+temp_workers = LpVariable.dicts("TempWorkers", (dates, shift_labels), 0, None, LpBinary)
 
-# 满足每个班次需求的约束
+# 目标函数：最小化总人天数
+model += lpSum(full_time[date][shift][i] for date in dates for shift in shift_labels for i in range(200)) + lpSum(temp_workers[date][shift] for date in dates for shift in shift_labels)
+
+# 每个班次的需求必须被满足的约束
 for date in dates:
     for shift in shift_labels:
-        model += (
-            25 * lpSum(x[(date, shift)] * i for i in range(200)) + 20 * y[(date, shift)]
-            >= demand_per_shift[date][shift]
-        )
+        model += (25 * lpSum(full_time[date][shift][i] for i in range(200)) + 20 * temp_workers[date][shift] >= demand_per_shift[date][shift])
 
 # 正式工的出勤率不超过85%
 for i in range(200):
-    model += lpSum(x[(date, shift)] for date in dates for shift in shift_labels) <= 25
+    model += lpSum(full_time[date][shift][i] for date in dates for shift in shift_labels) <= 25 * 0.85
 
-# 解决问题
+# 正式工连续出勤天数不超过7天
+for i in range(200):
+    for d in range(len(dates)-6):
+        model += lpSum(full_time[dates[d + k]][shift][i] for k in range(7) for shift in shift_labels) <= 7
+
+# 求解问题
 model.solve(PULP_CBC_CMD(msg=0))
 
 # 收集结果并输出为CSV
@@ -65,25 +51,21 @@ results = []
 for date in dates:
     for shift in shift_labels:
         for i in range(200):
-            if x[(date, shift)].varValue * i > 0:
-                results.append(
-                    {
-                        "Sorting_Center": "SC60",
-                        "Date": date,
-                        "Shift": shift,
-                        "Employee": f"FullTime({i})",
-                    }
-                )
-        temp_workers = int(y[(date, shift)].varValue)
-        for j in range(temp_workers):
-            results.append(
-                {
+            if full_time[date][shift][i].varValue > 0:
+                results.append({
                     "Sorting_Center": "SC60",
                     "Date": date,
                     "Shift": shift,
-                    "Employee": f"Temp({j})",
-                }
-            )
+                    "Employee": f"FullTime({i})"
+                })
+        temp_workers_count = int(temp_workers[date][shift].varValue)
+        for j in range(temp_workers_count):
+            results.append({
+                "Sorting_Center": "SC60",
+                "Date": date,
+                "Shift": shift,
+                "Employee": f"Temp({j})"
+            })
 
 # 创建DataFrame并保存到CSV
 results_df = pd.DataFrame(results)
