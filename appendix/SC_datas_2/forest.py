@@ -72,10 +72,15 @@ existing_scs = [
 def load_data(existing_scs):
     all_data = []
     for i in existing_scs:
-        data = pd.read_csv(f"SC{i}.csv")
-        data["SC_id"] = i
-        all_data.append(data)
-    return pd.concat(all_data, ignore_index=True)
+        try:
+            data = pd.read_csv(f"SC{i}.csv")
+            data["SC_id"] = i
+            all_data.append(data)
+        except FileNotFoundError:
+            print(f"File SC{i}.csv not found, skipping.")
+        except Exception as e:
+            print(f"Error processing SC{i}.csv: {e}")
+    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
 
 
 # 数据预处理
@@ -86,22 +91,26 @@ def preprocess(data):
     data["month"] = data["date"].dt.month
     data["day"] = data["date"].dt.day
     data["weekday"] = data["date"].dt.weekday
-    data["hour"] = data["hour"]  
+    data["hour"] = data["hour"]
+
+    return data
 
 
 # 训练模型
 def train_model(data):
-    features = data[["SC_id", "year", "month", "day", "weekday","hour"]]
+
+    features = data[["SC_id", "year", "month", "day", "weekday", "hour"]]
     target = data["value"]
     X_train, X_test, y_train, y_test = train_test_split(
         features,
         target,
         test_size=0.2,
         random_state=50,
-
     )
 
-    model = RandomForestRegressor(n_estimators=300, random_state=42, min_samples_split=20)
+    model = RandomForestRegressor(
+        n_estimators=300, random_state=42, min_samples_split=20
+    )
     model.fit(X_train, y_train)
 
     # 预测和评估
@@ -112,16 +121,33 @@ def train_model(data):
 
 
 # 预测未来的货量
+# def predict_future(model, start_date, num_days, existing_scs):
+#     future_dates = pd.date_range(start_date, periods=num_days)
+#     future_data = pd.DataFrame(
+#         {
+#             "date": np.repeat(future_dates, len(existing_scs)),
+#             "SC_id": np.tile(existing_scs, num_days),
+#         }
+#     )
+#     future_data = preprocess(future_data)
+#     features = future_data[["SC_id", "year", "month", "day", "weekday"]]
+#     predictions = model.predict(features)
+#     future_data["predicted_volume"] = predictions
+#     return future_data
+
+
 def predict_future(model, start_date, num_days, existing_scs):
-    future_dates = pd.date_range(start_date, periods=num_days)
+    # 为每个日期生成24个小时的数据
+    future_dates = pd.date_range(start_date, periods=num_days, freq="H")
     future_data = pd.DataFrame(
         {
             "date": np.repeat(future_dates, len(existing_scs)),
-            "SC_id": np.tile(existing_scs, num_days),
+            "SC_id": np.tile(existing_scs, len(future_dates)),
+            "hour": future_dates.hour.repeat(len(existing_scs)),
         }
     )
     future_data = preprocess(future_data)
-    features = future_data[["SC_id", "year", "month", "day", "weekday"]]
+    features = future_data[["SC_id", "year", "month", "day", "weekday", "hour"]]
     predictions = model.predict(features)
     future_data["predicted_volume"] = predictions
     return future_data
@@ -139,7 +165,12 @@ def main():
     data = load_data(existing_scs)
     data = preprocess(data)
     model = train_model(data)
-    future_predictions = predict_future(model, "2023-08-01", 153, existing_scs)
+    future_predictions = predict_future(
+        model,
+        "2023-08-01",
+        153 * 24,
+        existing_scs,
+    )
     save_predictions_to_csv(future_predictions, "predicted_volumes.csv")
 
 
