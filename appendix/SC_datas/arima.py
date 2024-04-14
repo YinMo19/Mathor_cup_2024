@@ -1,85 +1,88 @@
 import pandas as pd
+from statsmodels.tsa.stattools import adfuller
+from pmdarima import auto_arima
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 import numpy as np
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.metrics import mean_squared_error
 
 # 假设存在的SCid列表
-data_for_sc = pd.read_csv("../../附件/附件1.csv", encoding="GB2312")
-ALL_SC = list(set(data_for_sc["分拣中心"]))
-existing_scs = list(map(lambda SC_: int(SC_[2:]), ALL_SC))
-existing_scs.sort()
+existing_scs = [1,2,3,4,5,6,7,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,34,35,36,37,38,39,40,41,43,44,46,47,48,49,51,52,53,54,55,56,57,58,60,61,63,66,68] 
 
+# 检查序列平稳性
+def check_stationarity(series):
+    result = adfuller(series.dropna())
+    print('ADF Statistic: %f' % result[0])
+    print('p-value: %f' % result[1])
+    print('Critical Values:')
+    for key, value in result[4].items():
+        print('\t%s: %.3f' % (key, value))
+    if result[1] > 0.05:
+        print("Series is not stationary")
+    else:
+        print("Series is stationary")
 
-# 加载和预处理数据的函数不变
+# 加载数据
 def load_data(existing_scs):
-    all_data = []
-    for i in existing_scs:
-        data = pd.read_csv(f"SC{i}.csv")
-        data["SC_id"] = i
-        all_data.append(data)
-    return pd.concat(all_data, ignore_index=True)
+    all_data = {}
+    for sc_id in existing_scs:
+        try:
+            data = pd.read_csv(f'SC{sc_id}.csv', parse_dates=['date'], index_col='date')
+            data = data.asfreq('D')  # 确保数据频率为每天
+            data = data.fillna(method='ffill')  # 填充缺失值
+            all_data[sc_id] = data['value']  # 假设货量列名为 'volume'
+            print(f"Checking stationarity for center {sc_id}:")
+            check_stationarity(data['value'])  # 检查平稳性
+        except FileNotFoundError:
+            print(f"File for center {sc_id} not found.")
+    return all_data
 
+# 训练ARIMA模型并进行预测
+def train_and_predict(data, sc_id):
+    # 使用auto_arima自动找到最优参数
+    model = auto_arima(data, start_p=1, start_q=1,
+                       test='adf',       # 使用adf测试确定d
+                       max_p=5, max_q=5, # 最大p和q
+                       m=1,              # 频率
+                       d=None,           # 让模型确定差分次数
+                       seasonal=True,   # 季节性
+                       start_P=0, 
+                       D=0, 
+                       trace=True,
+                       error_action='ignore',  
+                       suppress_warnings=True, 
+                       stepwise=True)
 
-def preprocess(data):
-    data["date"] = pd.to_datetime(data["date"])
-    data = data.sort_values(by=["SC_id", "date"])
-    return data
+    print(f"Best ARIMA model order {model.order} for SC_ID {sc_id}")
+    model_fit = model.fit(data)
+    future_forecast = model.predict(n_periods=153)
+    return future_forecast
 
-def preprocess(data):
-    data["date"] = pd.to_datetime(data["date"])
-    data = data.sort_values(by=["SC_id", "date"])
-    return data
+# 将预测结果保存到CSV文件
+def save_predictions_to_csv(predictions):
+    rows = []
+    for sc_id, forecast in predictions.items():
+        dates = pd.date_range(start='2023/08/01', periods=153, freq='D')
+        for date, value in zip(dates, forecast):
+            rows.append({
+                'SC_ID': sc_id,
+                'date': date.strftime('%Y/%m/%d'),
+                'value': value
+            })
+    
+    df = pd.DataFrame(rows, columns=['SC_ID', 'date', 'value'])
+    df.to_csv('output.csv', index=False)
+    print("Saved predictions to 'output.csv'")
 
-# 训练 ARIMA 模型
-def train_sarima_models(data):
-    models = {}
-    for sc_id, group in data.groupby("SC_id"):
-        # 需要先确定最佳的SARIMA模型参数
-        # 这里使用了(1, 1, 1)x(1, 1, 1, 12)作为示例，实际上你需要通过模型选择过程来确定最佳参数
-        sarima_order = (1, 1, 1)
-        seasonal_order = (1, 1, 1, 12)
-        model = SARIMAX(
-            group["value"],
-            order=sarima_order,
-            seasonal_order=seasonal_order,
-            enforce_stationarity=False,
-            enforce_invertibility=False,
-        )
-        fitted_model = model.fit(disp=False)
-        # 评估模型可以使用滚动预测的方式，这里暂时省略
-        models[sc_id] = fitted_model
-    return models
-
-
-# 预测未来的货量
-def predict_future(models, start_date, num_days, existing_scs):
-    future_dates = pd.date_range(start_date, periods=num_days)
-    all_predictions = []
-    for sc_id, model in models.items():
-        predictions = model.forecast(steps=num_days)
-        sc_predictions = pd.DataFrame(
-            {"date": future_dates, "SC_id": sc_id, "predicted_volume": predictions}
-        )
-        all_predictions.append(sc_predictions)
-    return pd.concat(all_predictions, ignore_index=True)
-
-
-# 保存结果到CSV的函数不变
-def save_predictions_to_csv(predictions, file_name):
-    predictions["date"] = predictions["date"].dt.strftime("%Y-%m-%d")
-    predictions.to_csv(file_name, index=False)
-    print(f"Saved predictions to {file_name}")
-
-
-# 主函数
 # 主函数
 def main():
-    data = load_data(existing_scs)
-    data = preprocess(data)
-    models = train_sarima_models(data)
-    future_predictions = predict_future(models, "2023-08-01", 153, existing_scs)
-    save_predictions_to_csv(future_predictions, "predicted_volumes.csv")
+    data_dict = load_data(existing_scs)
+    predictions = {}
 
+    for sc_id, data in data_dict.items():
+        print(f"Training ARIMA for center {sc_id}...")
+        forecast = train_and_predict(data, sc_id)
+        predictions[sc_id] = forecast
 
-if __name__ == "__main__":
+    save_predictions_to_csv(predictions)
+
+if __name__ == '__main__':
     main()
