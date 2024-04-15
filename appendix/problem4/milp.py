@@ -2,7 +2,7 @@ import pandas as pd
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD
 
 # 读取数据
-df = pd.read_csv("read.csv")
+df = pd.read_csv("for_read.csv")
 df["date"] = pd.to_datetime(df["date"]).dt.date
 
 # 班次及时间段
@@ -68,7 +68,6 @@ for i in range(200):
 # 求解问题
 # model.solve(PULP_CBC_CMD(msg=1))
 model.solve(PULP_CBC_CMD(msg=1, threads=8,gapRel=0.001))
-print("soolved")
 # 收集结果并输出为CSV
 results = []
 for date in dates:
