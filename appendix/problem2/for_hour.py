@@ -11,11 +11,17 @@ def load_data():
     return data_sc, data_routes, data_changes
 
 
+
 def preprocess_data(data_sc, data_changes):
     # Combining date and hour into a single datetime column
     data_sc["完整时间"] = pd.to_datetime(
         data_sc["日期"].astype(str) + " " + data_sc["小时"].astype(str) + ":00"
     )
+
+    # Adding new time-related features
+    data_sc["小时"] = data_sc["完整时间"].dt.hour  # Hour of the day
+    data_sc["星期几"] = data_sc["完整时间"].dt.weekday  # Day of the week (Monday=0, Sunday=6)
+    data_sc["月份"] = data_sc["完整时间"].dt.month  # Month of the year
 
     # One-Hot Encoding for sorting centers
     ohe = OneHotEncoder()
@@ -28,9 +34,12 @@ def preprocess_data(data_sc, data_changes):
 
 def predict_future_volume(data_sc, ohe, data_changes):
     # Generating data for the future date range within each hour
-    start_time = data_sc["完整时间"].min()
-    future_dates = pd.date_range(start=start_time, periods=744, freq="h")
+    last_time = data_sc["完整时间"].max()
+    future_dates = pd.date_range(last_time + pd.Timedelta(hours=1), periods=744, freq="h")
     future_data = pd.DataFrame({"完整时间": future_dates})
+    future_data["小时"] = future_data["完整时间"].dt.hour
+    future_data["星期几"] = future_data["完整时间"].dt.weekday
+    future_data["月份"] = future_data["完整时间"].dt.month
 
     # Predicting future volume for each sorting center
     future_volumes = []
@@ -39,21 +48,13 @@ def predict_future_volume(data_sc, ohe, data_changes):
         center_data = data_sc[data_sc[center] == 1]
         if not center_data.empty:
             # Train a model to predict volume
-            X = (
-                (center_data["完整时间"] - start_time)
-                .dt.total_seconds()
-                .values.reshape(-1, 1)
-            )
+            X = center_data[["小时", "星期几", "月份"]].values
             y = center_data["货量"].values
             model = RandomForestRegressor(n_estimators=100, random_state=42)
             model.fit(X, y)
 
             # Use the model to predict future volume
-            future_X = (
-                (future_data["完整时间"] - start_time)
-                .dt.total_seconds()
-                .values.reshape(-1, 1)
-            )
+            future_X = future_data[["小时", "星期几", "月份"]].values
             future_y = model.predict(future_X)
             for date, volume in zip(future_dates, future_y):
                 cleaned_center_name = center.replace("x0_分拣中心_", "")
