@@ -41,7 +41,7 @@ grouped_volumes = (
 grouped_volumes.rename(columns={"日期时间": "日期"}, inplace=True)
 
 for special_SC in grouped_volumes["分拣中心"].unique():
-    grouped_volumes = grouped_volumes[grouped_volumes["分拣中心"] == "分拣中心_SC58"]
+    pre_grouped_volumes = grouped_volumes[grouped_volumes["分拣中心"] == special_SC]
 
     import pulp
     from pulp import PULP_CBC_CMD
@@ -56,9 +56,9 @@ for special_SC in grouped_volumes["分拣中心"].unique():
         [
             (center, date, shift)
             for center, date, shift in zip(
-                grouped_volumes["分拣中心"],
-                grouped_volumes["日期"],
-                grouped_volumes["班次"],
+                pre_grouped_volumes["分拣中心"],
+                pre_grouped_volumes["日期"],
+                pre_grouped_volumes["班次"],
             )
         ],
         lowBound=0,
@@ -69,9 +69,9 @@ for special_SC in grouped_volumes["分拣中心"].unique():
         [
             (center, date, shift)
             for center, date, shift in zip(
-                grouped_volumes["分拣中心"],
-                grouped_volumes["日期"],
-                grouped_volumes["班次"],
+                pre_grouped_volumes["分拣中心"],
+                pre_grouped_volumes["日期"],
+                pre_grouped_volumes["班次"],
             )
         ],
         lowBound=0,
@@ -84,16 +84,16 @@ for special_SC in grouped_volumes["分拣中心"].unique():
             regular_workers[center, date, shift]
             + temporary_workers[center, date, shift]
             for center, date, shift in zip(
-                grouped_volumes["分拣中心"],
-                grouped_volumes["日期"],
-                grouped_volumes["班次"],
+                pre_grouped_volumes["分拣中心"],
+                pre_grouped_volumes["日期"],
+                pre_grouped_volumes["班次"],
             )
         ]
     )
 
     # Constraints
     # Each shift's staffing needs must meet the volume requirements
-    for i, row in grouped_volumes.iterrows():
+    for i, row in pre_grouped_volumes.iterrows():
         center, date, shift, volume = (
             row["分拣中心"],
             row["日期"],
@@ -107,7 +107,7 @@ for special_SC in grouped_volumes["分拣中心"].unique():
         )
 
     # Maximum of 60 regular workers per sorting center per day
-    for (center, date), group in grouped_volumes.groupby(["分拣中心", "日期"]):
+    for (center, date), group in pre_grouped_volumes.groupby(["分拣中心", "日期"]):
         model += (
             pulp.lpSum(regular_workers[center, date, shift] for shift in group["班次"])
             <= 60
@@ -120,7 +120,7 @@ for special_SC in grouped_volumes["分拣中心"].unique():
     # Output results
     results = []
     for center, date, shift in zip(
-        grouped_volumes["分拣中心"], grouped_volumes["日期"], grouped_volumes["班次"]
+        pre_grouped_volumes["分拣中心"], pre_grouped_volumes["日期"], pre_grouped_volumes["班次"]
     ):
         result = {
             "分拣中心": center,
