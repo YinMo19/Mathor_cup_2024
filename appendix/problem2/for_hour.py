@@ -28,8 +28,8 @@ def preprocess_data(data_sc, data_changes):
 
 def predict_future_volume(data_sc, ohe, data_changes):
     # Generating data for the future date range within each hour
-    start_time = data_sc["完整时间"].min()
-    future_dates = pd.date_range(start=start_time, periods=744, freq="h")
+    last_time = data_sc["完整时间"].max()
+    future_dates = pd.date_range(last_time + pd.Timedelta(hours=1), periods=744, freq="h")
     future_data = pd.DataFrame({"完整时间": future_dates})
 
     # Predicting future volume for each sorting center
@@ -40,7 +40,7 @@ def predict_future_volume(data_sc, ohe, data_changes):
         if not center_data.empty:
             # Train a model to predict volume
             X = (
-                (center_data["完整时间"] - start_time)
+                (center_data["完整时间"] - last_time)
                 .dt.total_seconds()
                 .values.reshape(-1, 1)
             )
@@ -50,7 +50,7 @@ def predict_future_volume(data_sc, ohe, data_changes):
 
             # Use the model to predict future volume
             future_X = (
-                (future_data["完整时间"] - start_time)
+                (future_data["完整时间"] - last_time)
                 .dt.total_seconds()
                 .values.reshape(-1, 1)
             )
