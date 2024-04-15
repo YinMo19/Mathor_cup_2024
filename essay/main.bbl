@@ -1,0 +1,29 @@
+\begin{thebibliography}{1}
+
+\bibitem{2001Random}
+L.~Breiman.
+\newblock Random forests, machine learning 45.
+\newblock {\em Journal of Clinical Microbiology}, 2:199--228, 2001.
+
+\bibitem{breiman2001random}
+Leo Breiman.
+\newblock Random forests.
+\newblock {\em Machine learning}, 45:5--32, 2001.
+
+\bibitem{GRAVES2005602}
+Alex Graves and Jürgen Schmidhuber.
+\newblock Framewise phoneme classification with bidirectional lstm and other neural network architectures.
+\newblock {\em Neural Networks}, 18(5):602--610, 2005.
+\newblock IJCNN 2005.
+
+\bibitem{6795963}
+Sepp Hochreiter and Jürgen Schmidhuber.
+\newblock Long short-term memory.
+\newblock {\em Neural Computation}, 9(8):1735--1780, 1997.
+
+\bibitem{Newbold1974ExperienceWF}
+Paul Newbold and Clive William~John Granger.
+\newblock Experience with forecasting univariate time series and the combination of forecasts.
+\newblock 1974.
+
+\end{thebibliography}

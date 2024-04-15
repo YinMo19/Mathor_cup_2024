@@ -114,7 +114,7 @@ for special_SC in grouped_volumes["分拣中心"].unique():
         )
 
     # Solve the model
-    model.solve(PULP_CBC_CMD(msg=1, threads=8, gapRel=0.05))
+    model.solve(PULP_CBC_CMD(msg=1, threads=8, gapRel=0.01))
     # model.solve()
 
     # Output results
