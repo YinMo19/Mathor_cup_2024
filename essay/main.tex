@@ -1,7 +1,7 @@
-\documentclass[UTF8,a4paper,10 pt]{article}%字符标准，纸张，字体大小，文档类型，自行打印11pt，单位打印12pt
+\documentclass[UTF8]{article}%字符标准，纸张，字体大小，文档类型，自行打印11pt，单位打印12pt
 \usepackage{mathtools,amssymb,array,amsthm,amsmath}%数学宏包
 \usepackage{geometry,ulem,graphicx,longtable,caption2,cite,fancyhdr,multicol,color}%通用宏包
-\geometry{a4paper,left=2cm, right=2cm, top=2.6cm, bottom=3cm}%页面布局
+\geometry{a4paper,left=2.5cm, right=2.5cm, top=2.6cm, bottom=3cm}%页面布局
 \usepackage{ctex}
 \usepackage{multirow} % Required for multirows
 \newcommand\dd{\mathop{}\!\mathrm{d}}%定义微分算子
@@ -251,32 +251,36 @@ ARIMA模型（自回归积分滑动平均模型）是一种广泛应用于时间
 \toprule%第一道横线
 符号&说明 \\
 \midrule%第二道横线 
-$R(i,j,k)$&表示第 \(i\)个分拣中心在第 
-$j$ 天的第 
-$k$ 个班次中正式工的出勤人数。\\
-$T(i,j,k)$&表示第 \(i\)个分拣中心在第 
-$j$ 天的第 
-$k$ 个班次中临时工的出勤人数。\\
-\(v_r\)&正式员工的工作效率\\ 
-\(v_t\)&临时员工的工作效率\\ 
-\(t_p\)&一个班次的工作小时数\\
+$R(c,d,s)$&表示第 \(c\)个分拣中心在第 
+$d$ 天的第 
+$s$ 个班次中正式工的出勤人数。\\
+$T(c,d,s)$&表示第 \(c\)个分拣中心在第 
+$d$ 天的第 
+$s$ 个班次中临时工的出勤人数。\\
+$V(c,d,s)$& 表示第 \(c\)个分拣中心在第 
+$d$ 天的第 
+$s$ 个班次中预测货物量\\
 \bottomrule%第三道横线
 \end{tabular}
 \end{table}
 我们的目标是最小化总人天数，即所有分拣中心在所有班次中正式工和临时工的总人数。目标函数可以写为
 \begin{align*}
-    {\rm Minimize\;}Z = \sum_{i}\sum_{j}\sum_{k}(R(i,j,k)+T(i,j,k))
+    {\rm Minimize\;}Z = \sum_{c}\sum_{d}\sum_{s}(R(c,d,s)+T(c,d,s))
 \end{align*}
 
 约束条件是
 \begin{enumerate}
-    \item 对于每个分拣中心、每个班次，正式工和临时工的总人数不得超过该班次的工作效率乘以工作小时数
-    \item 对于每个分拣中心、每个班次，我们有以下约束条件：\begin{align*}
-        R(i,j,k) \times v_r + T_{i,j,k} \times v_t \leq t_p
+    \item 处理货物量约束：每个班次的员工人数必须足以处理该班次的预测货物量。如果假设一个正式员工每小时可以处理25个单位的货物，一个临时员工每小时可以处理20个单位，则每个班次的约束为：\begin{align*}
+        25R(c,d,s)+20 T(c,d,s)\geq V(c,d,s)
+    \end{align*}
+    \item 正式员工数量限制：每个分拣中心每天的正式员工数量不能超过60人。对于每个日期 
+    $d$ 和分拣中心 
+    $c$，约束可以写为：\begin{align*}
+        \sum_s R(c,d,s)\leq 60
     \end{align*}
 \end{enumerate}
 
-
+\
 
 
 \section{问题四的建模与求解}
@@ -315,6 +319,9 @@ $D(d,s)$&整数变量，表示在日期 $d $和班次 $s $所需的工作需求\
     \item 连续工作天数不超过7天:\begin{align*}
         \forall i,\forall d\in {\rm Dates\; if \;} d+6 \leq{\rm len(Dates):}\sum_{k =0}^6\sum_{s\in {\rm Shifts}}   F(i,d+k,s)\leq 7
     \end{align*}这确保任何全职员工在连续7天内的工作天数不超过7天。
+    \item 每人每天只能工作一个班次：每个员工每天只能安排一个班次\begin{align*}
+        \sum_s F(i,d,s)\leq 1
+    \end{align*}
 \end{enumerate}
 
 \subsection{建模求解}
@@ -550,11 +557,17 @@ def load_data():
     return data_sc, data_routes, data_changes
 
 
+
 def preprocess_data(data_sc, data_changes):
     # Combining date and hour into a single datetime column
     data_sc["完整时间"] = pd.to_datetime(
         data_sc["日期"].astype(str) + " " + data_sc["小时"].astype(str) + ":00"
     )
+
+    # Adding new time-related features
+    data_sc["小时"] = data_sc["完整时间"].dt.hour  # Hour of the day
+    data_sc["星期几"] = data_sc["完整时间"].dt.weekday  # Day of the week (Monday=0, Sunday=6)
+    data_sc["月份"] = data_sc["完整时间"].dt.month  # Month of the year
 
     # One-Hot Encoding for sorting centers
     ohe = OneHotEncoder()
@@ -567,9 +580,12 @@ def preprocess_data(data_sc, data_changes):
 
 def predict_future_volume(data_sc, ohe, data_changes):
     # Generating data for the future date range within each hour
-    start_time = data_sc["完整时间"].min()
-    future_dates = pd.date_range(start=start_time, periods=744, freq="h")
+    last_time = data_sc["完整时间"].max()
+    future_dates = pd.date_range(last_time + pd.Timedelta(hours=1), periods=744, freq="h")
     future_data = pd.DataFrame({"完整时间": future_dates})
+    future_data["小时"] = future_data["完整时间"].dt.hour
+    future_data["星期几"] = future_data["完整时间"].dt.weekday
+    future_data["月份"] = future_data["完整时间"].dt.month
 
     # Predicting future volume for each sorting center
     future_volumes = []
@@ -578,21 +594,13 @@ def predict_future_volume(data_sc, ohe, data_changes):
         center_data = data_sc[data_sc[center] == 1]
         if not center_data.empty:
             # Train a model to predict volume
-            X = (
-                (center_data["完整时间"] - start_time)
-                .dt.total_seconds()
-                .values.reshape(-1, 1)
-            )
+            X = center_data[["小时", "星期几", "月份"]].values
             y = center_data["货量"].values
             model = RandomForestRegressor(n_estimators=100, random_state=42)
             model.fit(X, y)
 
             # Use the model to predict future volume
-            future_X = (
-                (future_data["完整时间"] - start_time)
-                .dt.total_seconds()
-                .values.reshape(-1, 1)
-            )
+            future_X = future_data[["小时", "星期几", "月份"]].values
             future_y = model.predict(future_X)
             for date, volume in zip(future_dates, future_y):
                 cleaned_center_name = center.replace("x0_分拣中心_", "")
@@ -648,10 +656,13 @@ def load_data():
 
 
 def preprocess_data(data_sc, data_changes):
-    # 预处理数据，准备特征和标签
+    # Convert '日期' to datetime and extract more features
     data_sc["日期"] = pd.to_datetime(data_sc["日期"], format="%Y/%m/%d")
+    data_sc["月份"] = data_sc["日期"].dt.month  # Month as a feature
+    data_sc["星期几"] = data_sc["日期"].dt.weekday  # Day of the week as a feature
+    data_sc["年中日"] = data_sc["日期"].dt.dayofyear  # Day of the year as a feature
 
-    # One-Hot Encoding 分拣中心
+    # One-Hot Encoding for sorting centers
     ohe = OneHotEncoder()
     encoded_centers = ohe.fit_transform(data_sc[["分拣中心"]].astype(str)).toarray()
     center_df = pd.DataFrame(encoded_centers, columns=ohe.get_feature_names_out())
@@ -661,31 +672,27 @@ def preprocess_data(data_sc, data_changes):
 
 
 def predict_future_volume(data_sc, ohe, data_changes):
-    # 生成未来日期范围内的数据
-    future_dates = pd.date_range(data_sc["日期"].min(), periods=31, freq="D")
+    # Generate future dates starting 120 days after the minimum date in the data
+    future_dates = pd.date_range(start=data_sc["日期"].max() + pd.Timedelta(days=1), periods=31, freq="D")
     future_data = pd.DataFrame({"日期": future_dates})
+    future_data["月份"] = future_data["日期"].dt.month
+    future_data["星期几"] = future_data["日期"].dt.weekday
+    future_data["年中日"] = future_data["日期"].dt.dayofyear
 
-    # 预测每个分拣中心的未来货量
+    # Predict future volume for each sorting center
     future_volumes = []
     centers = ohe.get_feature_names_out()
     for center in centers:
-        # 过滤数据到当前分拣中心
         center_data = data_sc[data_sc[center] == 1]
         if not center_data.empty:
-            # 训练一个模型来预测货量
-            X = (
-                center_data[["日期"]]
-                .apply(lambda x: x.dt.dayofyear)
-                .values.reshape(-1, 1)
-            )
-            y = center_data["货量"].values
+            # Train a model to predict volume
+            X = center_data[["年中日", "月份", "星期几"]]
+            y = center_data["货量"]
             model = RandomForestRegressor(n_estimators=100, random_state=42)
             model.fit(X, y)
 
-            # 使用模型预测未来的货量
-            future_X = (
-                future_data["日期"].apply(lambda x: x.dayofyear).values.reshape(-1, 1)
-            )
+            # Predict future volume
+            future_X = future_data[["年中日", "月份", "星期几"]]
             future_y = model.predict(future_X)
             for date, volume in zip(future_dates, future_y):
                 cleaned_center_name = center.replace("x0_分拣中心_", "")
@@ -697,21 +704,18 @@ def predict_future_volume(data_sc, ohe, data_changes):
         future_volumes, columns=["分拣中心", "日期", "货量"]
     )
 
-    # 考虑附件4的流通路径变更
+    # Adjust predicted volumes based on changes from Attachment 4
     future_volumes_df.set_index(["分拣中心", "日期"], inplace=True)
     for index, row in data_changes.iterrows():
         from_center = "x0_分拣中心_" + row["始发分拣中心"]
         to_center = "分拣中心_" + row["到达分拣中心"]
         if from_center in centers:
-            # 分配部分货量到新的目的地
             future_volumes_df.loc[(to_center,), "货量"] += (
                 future_volumes_df.loc[(from_center,), "货量"] * 0.1
             )
             future_volumes_df.loc[(from_center,), "货量"] *= 0.9
 
-    # 重置索引以符合输出格式
     future_volumes_df.reset_index(inplace=True)
-
     return future_volumes_df
 
 
@@ -725,6 +729,145 @@ def main():
 
 if __name__ == "__main__":
     main()
+\end{lstlisting}
+
+\section{问题三代码}
+\begin{lstlisting}[language=python]
+import pandas as pd
+
+# Load the provided CSV file to examine its structure
+file_path = "../problem2/predicted_future_volumes_hours.csv"
+predicted_volumes = pd.read_csv(file_path)
+# Convert the date-time string to a datetime object
+predicted_volumes["日期时间"] = pd.to_datetime(predicted_volumes["日期时间"])
+
+# Define the shift times
+shift_times = {
+    "00:00-08:00": ("00:00", "08:00"),
+    "05:00-13:00": ("05:00", "13:00"),
+    "08:00-16:00": ("08:00", "16:00"),
+    "12:00-20:00": ("12:00", "20:00"),
+    "14:00-22:00": ("14:00", "22:00"),
+    "16:00-24:00": ("16:00", "24:00"),
+}
+
+
+# Create a function to assign each hour to a shift
+def assign_shift(hour):
+    for shift, (start, end) in shift_times.items():
+        if start <= hour.strftime("%H:%M") < end:
+            return shift
+    return None
+
+
+# Apply the function to assign shifts
+predicted_volumes["班次"] = predicted_volumes["日期时间"].apply(
+    lambda x: assign_shift(x)
+)
+
+# Group by center, date, and shift to sum up volumes
+grouped_volumes = (
+    predicted_volumes.groupby(
+        ["分拣中心", predicted_volumes["日期时间"].dt.date, "班次"]
+    )["货量"]
+    .sum()
+    .reset_index()
+)
+grouped_volumes.rename(columns={"日期时间": "日期"}, inplace=True)
+
+for special_SC in grouped_volumes["分拣中心"].unique():
+    pre_grouped_volumes = grouped_volumes[grouped_volumes["分拣中心"] == special_SC]
+
+    import pulp
+    from pulp import PULP_CBC_CMD
+
+    # Set up the linear programming problem to minimize the total number of person-days
+    model = pulp.LpProblem("Staff_Scheduling", pulp.LpMinimize)
+
+    # Decision variables
+    # Number of regular and temporary workers per shift, per day, per sorting center
+    regular_workers = pulp.LpVariable.dicts(
+        "Regular",
+        [
+            (center, date, shift)
+            for center, date, shift in zip(
+                pre_grouped_volumes["分拣中心"],
+                pre_grouped_volumes["日期"],
+                pre_grouped_volumes["班次"],
+            )
+        ],
+        lowBound=0,
+        cat="Integer",
+    )
+    temporary_workers = pulp.LpVariable.dicts(
+        "Temporary",
+        [
+            (center, date, shift)
+            for center, date, shift in zip(
+                pre_grouped_volumes["分拣中心"],
+                pre_grouped_volumes["日期"],
+                pre_grouped_volumes["班次"],
+            )
+        ],
+        lowBound=0,
+        cat="Integer",
+    )
+
+    # Objective: Minimize the total person-days
+    model += pulp.lpSum(
+        [
+            regular_workers[center, date, shift]
+            + temporary_workers[center, date, shift]
+            for center, date, shift in zip(
+                pre_grouped_volumes["分拣中心"],
+                pre_grouped_volumes["日期"],
+                pre_grouped_volumes["班次"],
+            )
+        ]
+    )
+
+    # Constraints
+    # Each shift's staffing needs must meet the volume requirements
+    for i, row in pre_grouped_volumes.iterrows():
+        center, date, shift, volume = (
+            row["分拣中心"],
+            row["日期"],
+            row["班次"],
+            row["货量"],
+        )
+        model += (
+            25 * regular_workers[center, date, shift]
+            + 20 * temporary_workers[center, date, shift]
+            >= volume
+        )
+
+    # Maximum of 60 regular workers per sorting center per day
+    for (center, date), group in pre_grouped_volumes.groupby(["分拣中心", "日期"]):
+        model += (
+            pulp.lpSum(regular_workers[center, date, shift] for shift in group["班次"])
+            <= 60
+        )
+
+    # Solve the model
+    model.solve(PULP_CBC_CMD(msg=1, threads=8, gapRel=0.05))
+    # model.solve()
+
+    # Output results
+    results = []
+    for center, date, shift in zip(
+        pre_grouped_volumes["分拣中心"], pre_grouped_volumes["日期"], pre_grouped_volumes["班次"]
+    ):
+        result = {
+            "分拣中心": center,
+            "日期": date,
+            "班次": shift,
+            "正式工": regular_workers[center, date, shift].varValue,
+            "临时工": temporary_workers[center, date, shift].varValue,
+        }
+        results.append(result)
+
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(f"sol3_/{special_SC}scheduling_results.csv", index=False)
 \end{lstlisting}
 
 \section{问题四代码}
@@ -796,9 +939,17 @@ for i in range(200):
             )
             <= 7
         )
+
+# 每个人每天只能上一个班次的约束
+for date in dates:
+    for i in range(200):
+        model += (
+            lpSum(full_time[date][shift][i] for shift in shift_labels) <= 1
+        )
+
 # 求解问题
-model.solve(PULP_CBC_CMD(msg=1, threads=8,gapRel=0.001))
-print("soolved")
+model.solve(PULP_CBC_CMD(msg=1, threads=8, gapRel=0.001))
+
 # 收集结果并输出为CSV
 results = []
 for date in dates:
@@ -826,8 +977,8 @@ for date in dates:
 
 # 创建DataFrame并保存到CSV
 results_df = pd.DataFrame(results)
-results_df.to_csv("scheduling_results.csv", index=False)
-print("CSV file has been saved with the scheduling results.")
+results_df.to_csv("scheduling_results_2.csv", index=False)
+print("CSV file has been saved with the scheduling results 2.")
 \end{lstlisting}
 
 
