@@ -23,49 +23,76 @@ for date in dates:
 model = LpProblem("Personnel_Scheduling", LpMinimize)
 
 # 定义变量
-full_time = LpVariable.dicts("FullTime", (dates, shift_labels, range(200)), 0, 1, LpBinary)
-temp_workers = LpVariable.dicts("TempWorkers", (dates, shift_labels), 0, None, LpBinary)
+full_time = LpVariable.dicts(
+    "FullTime", (dates, shift_labels, range(200)), 0, 1, LpBinary
+)
+temp_workers = LpVariable.dicts(
+    "TempWorkers", (dates, shift_labels), 0, None, cat="Integer"
+)
 
 # 目标函数：最小化总人天数
-model += lpSum(full_time[date][shift][i] for date in dates for shift in shift_labels for i in range(200)) + lpSum(temp_workers[date][shift] for date in dates for shift in shift_labels)
+model += lpSum(
+    full_time[date][shift][i]
+    for date in dates
+    for shift in shift_labels
+    for i in range(200)
+) + lpSum(temp_workers[date][shift] for date in dates for shift in shift_labels)
 
 # 每个班次的需求必须被满足的约束
 for date in dates:
     for shift in shift_labels:
-        model += (25 * lpSum(full_time[date][shift][i] for i in range(200)) + 20 * temp_workers[date][shift] >= demand_per_shift[date][shift])
+        model += (
+            25 * lpSum(full_time[date][shift][i] for i in range(200))
+            + 20 * temp_workers[date][shift]
+            >= demand_per_shift[date][shift]
+        )
 
 # 正式工的出勤率不超过85%
 for i in range(200):
-    model += lpSum(full_time[date][shift][i] for date in dates for shift in shift_labels) <= 25 * 0.85
+    model += (
+        lpSum(full_time[date][shift][i] for date in dates for shift in shift_labels)
+        <= 30 * 0.85
+    )
 
 # 正式工连续出勤天数不超过7天
 for i in range(200):
-    for d in range(len(dates)-6):
-        model += lpSum(full_time[dates[d + k]][shift][i] for k in range(7) for shift in shift_labels) <= 7
-
+    for d in range(len(dates) - 6):
+        model += (
+            lpSum(
+                full_time[dates[d + k]][shift][i]
+                for k in range(7)
+                for shift in shift_labels
+            )
+            <= 7
+        )
 # 求解问题
-model.solve(PULP_CBC_CMD(msg=0))
-
+# model.solve(PULP_CBC_CMD(msg=1))
+model.solve(PULP_CBC_CMD(msg=1, threads=8,gapRel=0.001))
+print("soolved")
 # 收集结果并输出为CSV
 results = []
 for date in dates:
     for shift in shift_labels:
         for i in range(200):
             if full_time[date][shift][i].varValue > 0:
-                results.append({
+                results.append(
+                    {
+                        "Sorting_Center": "SC60",
+                        "Date": date,
+                        "Shift": shift,
+                        "Employee": f"FullTime({i})",
+                    }
+                )
+        temp_workers_count = int(temp_workers[date][shift].varValue)
+        for j in range(temp_workers_count):
+            results.append(
+                {
                     "Sorting_Center": "SC60",
                     "Date": date,
                     "Shift": shift,
-                    "Employee": f"FullTime({i})"
-                })
-        temp_workers_count = int(temp_workers[date][shift].varValue)
-        for j in range(temp_workers_count):
-            results.append({
-                "Sorting_Center": "SC60",
-                "Date": date,
-                "Shift": shift,
-                "Employee": f"Temp({j})"
-            })
+                    "Employee": f"Temp({j})",
+                }
+            )
 
 # 创建DataFrame并保存到CSV
 results_df = pd.DataFrame(results)

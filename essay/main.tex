@@ -97,7 +97,7 @@
 
 \noindent\rule{\linewidth}{1pt}
 \begin{center}
-    \Large 论文标题
+    \Large 基于随机森林和PulP的物流预测和人员安排
 \end{center}
 \begin{center}
     \large\bf 摘要
@@ -105,7 +105,7 @@
 
 摘要内容
 
-\noindent{\bf 关键词:随机森林算法、LSTM}
+\noindent{\bf 关键词:随机森林算法、LSTM、ARIMA（SARIMA）、PuLP}
 
 
 \newpage
@@ -135,27 +135,6 @@
 \subsubsection{问题二}
 由于分拣中心之间存在货物运送的关联，在已知过去三个月内的货物运输关联情况下，若运输关系发生变化，预测分拣中心的货量变化。
 \subsection{总体思路分析}
-
-
-
-\clearpage
-\section{符号说明与基本假设}
-\subsection{符号说明}
-
-\begin{table}[!ht]
-\caption{符号说明}%标题
-\centering%把表居中
-\begin{tabular}{p{4cm}<{\centering}p{8cm}<{\centering}}%四个c代表该表一共四列，内容全部居中
-\toprule%第一道横线
-符号&说明 \\
-\midrule%第二道横线 
-&\\
-\bottomrule%第三道横线
-
-\end{tabular}
-\end{table}
-
-\subsection{基本假设}
 
 \clearpage
 \section{问题一的建模与求解}
@@ -241,7 +220,7 @@ ARIMA模型（自回归积分滑动平均模型）是一种广泛应用于时间
 
 \section{问题二的建模与求解}
 \subsection{分析}
-我们需要对已知的关系进行分析。因此我们首先先将仓库之间的关联进行可视化，我们选用弦图的形式，如图\ref{xt}。在现有的运输关系模型上发生了变动，此时我们需要考虑
+我们需要对已知的关系进行分析。因此我们首先先将仓库之间的关联进行可视化，我们选用弦图的形式，如图\ref{xt}。在现有的运输关系模型上发生了变动，此时我们需要考虑将数据预处理、特征提取、模型训练和预测。
 
 
 
@@ -251,6 +230,73 @@ ARIMA模型（自回归积分滑动平均模型）是一种广泛应用于时间
 	\caption{分配中心之间的关系弦图}
 	\label{xt}
 \end{figure}
+
+
+
+\section{问题四的建模与求解}
+\subsection{问题四的分析}
+
+这个问题是关于如何调度员工的最优解。这是一个线性规划问题，目标是最小化总人力成本，并同时满足工作班次的需求。下面是关于一些变量的假设。
+
+
+\begin{table}[!ht]
+\caption{符号说明}%标题
+\centering%把表居中
+\begin{tabular}{p{4cm}<{\centering}p{10cm}<{\centering}}%四个c代表该表一共四列，内容全部居中
+\toprule%第一道横线
+符号&说明 \\
+\midrule%第二道横线 
+$F(i,d,s)$&二元变量，表示固定员工 $i$ 在日期 $d $和班次$ s$ 是否工作\\
+$T(d,s)$&整数变量，表示在日期 $d $和班次 $s $需要的临时工人数\\
+$D(d,s)$&整数变量，表示在日期 $d $和班次 $s $所需的工作需求\\
+\bottomrule%第三道横线
+\end{tabular}
+\end{table}
+我们的目标函数是
+\begin{align*}
+    {\rm Minimize}\quad Z =\sum_{d\in {\rm Dates}}\sum_{s\in {\rm Shifts}}\left(\sum_{i = 1}^{200}F(i,d,s)+T(d,s)\right)
+\end{align*}
+即最小化全职和临时工的总人天数。这个最小化函数需要满足以下几个约束条件：
+\begin{enumerate}
+    \item 需求满足：\begin{align*}
+        \forall d\in {\rm Dates},\forall s\in {\rm Shifts}:\sum_{i = 1}^{200}F(i,d,s)+20\times T(d,s)\geq D(d,s)
+    \end{align*}
+    这个约束确保每个班次的工作需求被满足。这里，25和20是每个工作的产出（或能力）。
+    \item 正式工出勤率不超过85\%: \begin{align*}
+        \forall i:\sum_{d\in {\rm Dates}}\sum_{s\in {\rm Shifts}}F(i,d,s)\leq 30 \times 0.85
+    \end{align*}此约束限制每个全职员工在一个月内的最大工作天数。
+    \item 连续工作天数不超过7天:\begin{align*}
+        \forall i,\forall d\in {\rm Dates\; if \;} d+6 \leq{\rm len(Dates):}\sum_{k =0}^6\sum_{s\in {\rm Shifts}}   F(i,d+k,s)\leq 7
+    \end{align*}这确保任何全职员工在连续7天内的工作天数不超过7天。
+\end{enumerate}
+
+\subsection{建模求解}
+针对这个问题，我们选择开源的Python/PuLP库求解。PuLP 作为一个Python库，可以定义问题、变量、目标函数和约束，然后使用 CBC 或其他求解器求解这些问题。这里我们选择在 PuLP 库中调用 CBC（Coin-or branch and cut）解决这个问题。
+
+由于数量较大，我们设置了一个容忍度\(0.001\%\)，这是我们在这个容忍度下得到的结果。
+\begin{lstlisting}
+Result - Optimal solution found (within gap tolerance)
+
+Objective value:                51921.00000000
+Lower bound:                    51872.078
+Gap:                            0.00
+Enumerated nodes:               0
+Total iterations:               7555
+Time (CPU seconds):             9.44
+Time (Wallclock seconds):       9.90
+
+Option for printingOptions changed from normal to all
+Total time (CPU seconds):       9.53   (Wallclock seconds):       9.99
+\end{lstlisting}
+
+
+
+
+
+
+
+
+
 
 \clearpage
 \begin{center}
@@ -437,6 +483,382 @@ if __name__ == "__main__":
     main()
 \end{lstlisting}
 ARIMA和LSTM的代码未被采用，因此仅放在支撑材料中。
+
+
+\section{问题二代码}
+\noindent 按小时预测
+\begin{lstlisting}[language=python]
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import mean_squared_error
+
+
+def load_data():
+    data_sc = pd.read_csv("附件2.csv", encoding="gb2312")  # Updated file name
+    data_routes = pd.read_csv("附件3.csv", encoding="gb2312")
+    data_changes = pd.read_csv("附件4.csv", encoding="gb2312")
+    return data_sc, data_routes, data_changes
+
+
+def preprocess_data(data_sc, data_routes, data_changes):
+    data_sc["日期"] = pd.to_datetime(data_sc["日期"], format="%Y/%m/%d")
+    le = LabelEncoder()
+    data_sc["分拣中心"] = le.fit_transform(data_sc["分拣中心"])
+
+    # New: Extract hour from the '小时' column
+    data_sc["小时"] = data_sc["小时"].astype(int)
+
+    if "小时" in data_sc.columns:
+        # Calculate the average departure and arrival for each hour
+        avg_departure_hourly = (
+            data_sc.groupby(["分拣中心", "小时"])["货量"]
+            .mean()
+            .rename("平均发出货量_hourly")
+            .reset_index()
+        )
+        avg_arrival_hourly = (
+            data_sc.groupby(["分拣中心", "小时"])["货量"]
+            .mean()
+            .rename("平均到达货量_hourly")
+            .reset_index()
+        )
+
+        # Merge the adjusted volume information
+        data_sc = pd.merge(
+            data_sc, avg_departure_hourly, on=["分拣中心", "小时"], how="left"
+        )
+        data_sc = pd.merge(
+            data_sc, avg_arrival_hourly, on=["分拣中心", "小时"], how="left"
+        )
+        data_sc.fillna(
+            {"平均发出货量_hourly": 0, "平均到达货量_hourly": 0}, inplace=True
+        )
+
+        return data_sc, le
+    else:
+        print("'小时' 列不存在于数据框 'data_sc' 中！")
+        return None, None
+
+
+def create_features_labels(data):
+    data["year"] = data["日期"].dt.year
+    data["month"] = data["日期"].dt.month
+    data["day"] = data["日期"].dt.day
+    data["weekday"] = data["日期"].dt.weekday
+    features = data[
+        [
+            "分拣中心",
+            "year",
+            "month",
+            "day",
+            "weekday",
+            "小时",
+            "平均发出货量_hourly",
+            "平均到达货量_hourly",
+        ]
+    ]
+    labels = data["货量"]
+    return features, labels
+
+
+def train_and_predict(features, labels):
+    X_train, X_test, y_train, y_test = train_test_split(
+        features, labels, test_size=0.2, random_state=42
+    )
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    print(f"Mean Squared Error: {mse}")
+    return model
+
+
+def predict_future(model, last_date, le, data_sc, existing_csc):
+    # Generate future dates and hours for existing sorting centers
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=30)
+    hours = range(24)
+
+    future_df = pd.DataFrame(
+        {
+            "日期": [
+                date for date in future_dates for _ in hours for _ in existing_csc
+            ],
+            "小时": [
+                hour for _ in future_dates for hour in hours for _ in existing_csc
+            ],
+            "分拣中心": existing_csc * len(future_dates) * len(hours),
+        }
+    )
+
+    future_df["year"] = future_df["日期"].dt.year
+    future_df["month"] = future_df["日期"].dt.month
+    future_df["day"] = future_df["日期"].dt.day
+    future_df["weekday"] = future_df["日期"].dt.weekday
+
+    # Estimate average departure and arrival volumes
+    avg_departure = data_sc["平均发出货量_hourly"].mean()
+    avg_arrival = data_sc["平均到达货量_hourly"].mean()
+
+    future_df["平均发出货量_hourly"] = avg_departure
+    future_df["平均到达货量_hourly"] = avg_arrival
+
+    # Extract features
+    features = future_df[
+        [
+            "分拣中心",
+            "year",
+            "month",
+            "day",
+            "weekday",
+            "小时",
+            "平均发出货量_hourly",
+            "平均到达货量_hourly",
+        ]
+    ]
+
+    # Use the model to make predictions
+    predicted_values = model.predict(features)
+    future_df["value"] = predicted_values
+    future_df["日期"] = future_df["日期"].dt.strftime("%Y/%m/%d")  # Format the date
+
+    results_df = future_df[["分拣中心", "日期", "小时", "value"]]
+    results_df.rename(columns={"分拣中心": "SC_ID", "小时": "Hour"}, inplace=True)
+
+    # Save to CSV
+    results_df.to_csv("future_predictions_hourly.csv", index=False)
+    print("未来预测结果已保存到 'future_predictions_hourly.csv'")
+
+
+def main():
+    data_sc, data_routes, data_changes = load_data()
+    data_sc, le = preprocess_data(data_sc, data_routes, data_changes)
+
+    if data_sc is not None:
+        data_for_sc = pd.read_csv("../../附件/附件1.csv", encoding="GB2312")
+        ALL_SC = list(set(data_for_sc["分拣中心"]))
+        existing_csc = list(map(lambda SC_: int(SC_[2:]), ALL_SC))
+        existing_csc.sort()
+        features, labels = create_features_labels(data_sc)
+        model = train_and_predict(features, labels)
+        last_date = data_sc["日期"].max()  # Get the last known date
+        predict_future(model, last_date, le, data_sc, existing_csc)
+
+
+if __name__ == "__main__":
+    main()
+
+\end{lstlisting}
+\noindent 按天预测
+\begin{lstlisting}[language=python]
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import mean_squared_error
+
+def load_data():
+    data_sc = pd.read_csv('附件1.csv', encoding='gb2312')
+    data_routes = pd.read_csv('附件3.csv', encoding='gb2312')
+    data_changes = pd.read_csv('附件4.csv', encoding='gb2312')
+    return data_sc, data_routes, data_changes
+
+def preprocess_data(data_sc, data_routes, data_changes, existing_csc):
+    data_sc['日期'] = pd.to_datetime(data_sc['日期'], format='%Y/%m/%d')
+    le = LabelEncoder()
+    data_sc['分拣中心'] = le.fit_transform(data_sc['分拣中心'])
+
+    # Calculate the average departure and arrival for each sorting center
+    avg_departure = data_routes.groupby('始发分拣中心')['货量'].mean().rename('平均发出货量').reset_index()
+    avg_arrival = data_routes.groupby('到达分拣中心')['货量'].mean().rename('平均到达货量').reset_index()
+
+    # Convert sorting center codes
+    avg_departure['始发分拣中心'] = le.transform(avg_departure['始发分拣中心'])
+    avg_arrival['到达分拣中心'] = le.transform(avg_arrival['到达分拣中心'])
+
+    # Merge the adjusted volume information
+    data_sc = pd.merge(data_sc, avg_departure, left_on='分拣中心', right_on='始发分拣中心', how='left')
+    data_sc = pd.merge(data_sc, avg_arrival, left_on='分拣中心', right_on='到达分拣中心', how='left')
+    data_sc.fillna({'平均发出货量': 0, '平均到达货量': 0}, inplace=True)
+
+    return data_sc, le
+
+def create_features_labels(data):
+    data['year'] = data['日期'].dt.year
+    data['month'] = data['日期'].dt.month
+    data['day'] = data['日期'].dt.day
+    data['weekday'] = data['日期'].dt.weekday
+    features = data[['分拣中心', 'year', 'month', 'day', 'weekday', '平均发出货量', '平均到达货量']]
+    labels = data['货量']
+    return features, labels
+
+def train_and_predict(features, labels):
+    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    print(f"Mean Squared Error: {mse}")
+    return model
+
+def predict_future(model, last_date, le, data_sc, existing_csc):
+    # Generate future dates for the next 30 days
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=30)
+    future_df = pd.DataFrame({
+        'date': pd.to_datetime(list(future_dates) * len(existing_csc)),
+        '分拣中心': existing_csc * len(future_dates)
+    })
+    
+    future_df['year'] = future_df['date'].dt.year
+    future_df['month'] = future_df['date'].dt.month
+    future_df['day'] = future_df['date'].dt.day
+    future_df['weekday'] = future_df['date'].dt.weekday
+
+    # Estimate average departure and arrival volumes
+    avg_departure = data_sc['平均发出货量'].mean()
+    avg_arrival = data_sc['平均到达货量'].mean()
+
+    future_df['平均发出货量'] = avg_departure
+    future_df['平均到达货量'] = avg_arrival
+
+    future_df = future_df[future_df['分拣中心'].isin(existing_csc)]
+
+    # Extract features
+    features = future_df[['分拣中心', 'year', 'month', 'day', 'weekday', '平均发出货量', '平均到达货量']]
+    
+    # Use the model to make predictions
+    predicted_values = model.predict(features)
+    future_df['value'] = predicted_values
+    future_df['date'] = future_df['date'].dt.strftime('%Y/%m/%d')  # Format the date
+
+    results_df = future_df[['分拣中心', 'date', 'value']]
+    results_df.rename(columns={'分拣中心': 'SC_ID'}, inplace=True)
+
+    # Save to CSV
+    results_df.to_csv('future_predictions.csv', index=False)
+    print("未来预测结果已保存到 'future_predictions.csv'")
+
+def main():
+    data_sc, data_routes, data_changes = load_data()
+    existing_csc = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 18, 19, 20,
+        21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 37,
+        38, 39, 40, 41, 43, 44, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56,
+        57, 58, 60, 61, 63, 66, 68
+    ]
+    data_sc, le = preprocess_data(data_sc, data_routes, data_changes, existing_csc)
+    features, labels = create_features_labels(data_sc)
+    model = train_and_predict(features, labels)
+    last_date = data_sc['日期'].max()  # Get the last known date
+    predict_future(model, last_date, le, data_sc, existing_csc)
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+
+\section{问题四代码}
+\begin{lstlisting}[language=python]
+import pandas as pd
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpBinary, PULP_CBC_CMD
+
+# 读取数据
+df = pd.read_csv("read.csv")
+df["date"] = pd.to_datetime(df["date"]).dt.date
+
+# 班次及时间段
+shifts = [(0, 8), (5, 13), (8, 16), (12, 20), (14, 22), (16, 24)]
+shift_labels = ["Shift1", "Shift2", "Shift3", "Shift4", "Shift5", "Shift6"]
+dates = sorted(df["date"].unique())
+
+# 计算每个班次的需求
+demand_per_shift = {date: {} for date in dates}
+for date in dates:
+    daily_data = df[df["date"] == date]
+    for label, (start, end) in zip(shift_labels, shifts):
+        demand_per_shift[date][label] = daily_data[
+            (daily_data["hour"] >= start) & (daily_data["hour"] < end)
+        ]["value"].sum()
+
+# 建立优化模型
+model = LpProblem("Personnel_Scheduling", LpMinimize)
+
+# 定义变量
+full_time = LpVariable.dicts(
+    "FullTime", (dates, shift_labels, range(200)), 0, 1, LpBinary
+)
+temp_workers = LpVariable.dicts(
+    "TempWorkers", (dates, shift_labels), 0, None, cat="Integer"
+)
+
+# 目标函数：最小化总人天数
+model += lpSum(
+    full_time[date][shift][i]
+    for date in dates
+    for shift in shift_labels
+    for i in range(200)
+) + lpSum(temp_workers[date][shift] for date in dates for shift in shift_labels)
+
+# 每个班次的需求必须被满足的约束
+for date in dates:
+    for shift in shift_labels:
+        model += (
+            25 * lpSum(full_time[date][shift][i] for i in range(200))
+            + 20 * temp_workers[date][shift]
+            >= demand_per_shift[date][shift]
+        )
+
+# 正式工的出勤率不超过85%
+for i in range(200):
+    model += (
+        lpSum(full_time[date][shift][i] for date in dates for shift in shift_labels)
+        <= 30 * 0.85
+    )
+
+# 正式工连续出勤天数不超过7天
+for i in range(200):
+    for d in range(len(dates) - 6):
+        model += (
+            lpSum(
+                full_time[dates[d + k]][shift][i]
+                for k in range(7)
+                for shift in shift_labels
+            )
+            <= 7
+        )
+# 求解问题
+model.solve(PULP_CBC_CMD(msg=1, threads=8,gapRel=0.001))
+print("soolved")
+# 收集结果并输出为CSV
+results = []
+for date in dates:
+    for shift in shift_labels:
+        for i in range(200):
+            if full_time[date][shift][i].varValue > 0:
+                results.append(
+                    {
+                        "Sorting_Center": "SC60",
+                        "Date": date,
+                        "Shift": shift,
+                        "Employee": f"FullTime({i})",
+                    }
+                )
+        temp_workers_count = int(temp_workers[date][shift].varValue)
+        for j in range(temp_workers_count):
+            results.append(
+                {
+                    "Sorting_Center": "SC60",
+                    "Date": date,
+                    "Shift": shift,
+                    "Employee": f"Temp({j})",
+                }
+            )
+
+# 创建DataFrame并保存到CSV
+results_df = pd.DataFrame(results)
+results_df.to_csv("scheduling_results.csv", index=False)
+print("CSV file has been saved with the scheduling results.")
+\end{lstlisting}
 
 
 \end{document}
